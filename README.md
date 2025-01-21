@@ -4,6 +4,18 @@
 2. Requesting couriers for shipments from a specific origin to a destination within a selected time frame
 3. Management and updating of courier and request statuses
 
+## TODO:
+- [ ] Project directory structure
+- [ ] Database Design
+- [ ] 3PL Proxy Pattern
+- [ ] Webhook and API Design
+- [ ] Database Migration
+- [ ] Entity and Repositories
+- [ ] Services
+- [ ] Controller
+- [ ] Test and Mock
+- [ ] Documentation
+
 ## Receive new request:
 ```mermaid
 flowchart TD
