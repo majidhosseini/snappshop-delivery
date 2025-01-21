@@ -1,4 +1,8 @@
 # Delivery Service:
+## Responsibility:
+1. Integration of 3PLs
+2. Requesting couriers for shipments from a specific origin to a destination within a selected time frame
+3. Management and updating of courier and request statuses
 
 ## Receive new request:
 ```mermaid
@@ -8,7 +12,7 @@ flowchart TD
     C --> |is valid| D[Store request in DB]
     C --> |Not valid| E[Return Error]
     D --> F{is lower than 1 Hour?}
-    F -->|Yes| G[Request for delivery]
+    F -->|Yes| G[Request for shipment]
     F -->|No| H[Schedule it]
 ```
 
@@ -24,23 +28,18 @@ flowchart TD
     A((Request for shipment))
 ```
 
-
-
-
-
 # User Story:
 ## Requirements:
-
-Order Entity:
-
+Request for shipment model:
 | Field    | type |
 | -------- | ------- |
 | OrderId  | unique    |
 | UserInfo | UserInfo     |
 | fromLoc  | [lat,lng]    |
 | toLoc    | [lat, lng] |
-| delveryDuration | [from, to] |
+| delveryTimeFrame | [from, to] |
 
+Time Frame: Two-hour time slots from 9 AM to 11 PM (for the next 4 days)
 
 
 ### Delivery State
