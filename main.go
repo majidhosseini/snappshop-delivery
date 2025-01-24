@@ -7,10 +7,10 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"snappshop.ir/cmd"
 	"snappshop.ir/config"
 	"snappshop.ir/internal/delivery"
 	"snappshop.ir/internal/scheduler"
-	"snappshop.ir/migrations"
 
 	"snappshop.ir/seeders"
 
@@ -30,7 +30,7 @@ func main() {
 	defer db.Close()
 
 	// Run database migrations
-	migrations.RunMigrations(db, "./migrations")
+	cmd.RunMigrations(db, "./db/migrations")
 
 	mainDB, err := gorm.Open(postgres.Open(cfg.DBConnectionString), &gorm.Config{})
 

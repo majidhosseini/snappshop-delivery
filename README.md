@@ -6,7 +6,7 @@
 
 ## TODO:
 - [ ] Project directory structure
-- [ ] Database Design
+- [x] Database Design
 - [ ] 3PL Proxy Pattern
 - [ ] Webhook and API Design
 - [ ] Database Migration
@@ -15,11 +15,13 @@
 - [ ] Controller
 - [ ] Test and Mock
 - [ ] Documentation
+- [ ] Request Validation and Idempotency
+- [ ] Log
 
 ## Receive new request:
 ```mermaid
 flowchart TD
-    A((Receive new request)) --> B(Validation Request)
+    A((Receive new request)) --> B(Validation Request,Idempotency,Timeframe, ...)
     B --> C{is Valid?}
     C --> |is valid| D[Store request in DB]
     C --> |Not valid| E[Return Error]
@@ -31,13 +33,25 @@ flowchart TD
 ## Fetch schedule requests:
 ```mermaid
 flowchart TD
-    A((Fetch from DB))
+    A((Scheduler)) --> B(Fetch shipment ready Orders or no response requests)
+    B --> DAS@{ shape: das, label: "Queue Requests" }
+    DAS --> 3PL(Send to provider)
+    3PL --> C{is success?}
+    C --> |Yes| D[(Change state to finding)]
+    C --> |No!| 3PL
 ```
 
 ## Proces requests:
 ```mermaid
 flowchart TD
-    A((Request for shipment))
+    A((Delivery Webhook)) --> B(Validate body)
+    B --> C{is correct?}
+    C --> |Yes| D(Fetch from DB)
+    D --> E{Has Data?}
+    E --> |Yes| U(Update state)
+
+    C --> |No| END((Do nothing))
+    E --> |No| END
 ```
 
 # User Story:
@@ -48,8 +62,8 @@ Request for shipment model:
 | OrderId  | unique    |
 | UserInfo | UserInfo     |
 | fromLoc  | [lat,lng]    |
-| toLoc    | [lat, lng] |
-| delveryTimeFrame | [from, to] |
+| toLoc    | [lat,lng] |
+| delveryTimeFrame | Timeframe |
 
 Time Frame: Two-hour time slots from 9 AM to 11 PM (for the next 4 days)
 
