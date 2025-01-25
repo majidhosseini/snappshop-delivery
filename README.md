@@ -54,6 +54,71 @@ flowchart TD
     E --> |No| END
 ```
 
+# Database
+```dbdiagram
+Enum "order_status" {
+  "created"
+  "in_progress"
+  "completed"
+  "canceled"
+}
+
+Table "orders" {
+  "id" SERIAL [pk, increment]
+  "order_number" VARCHAR(255) [unique, not null]
+  "status" order_status [not null]
+  "user_info" JSON [not null]
+  "origin_latitude" DOUBLEPRECISION [not null]
+  "origin_longitude" DOUBLEPRECISION [not null]
+  "destination_latitude" DOUBLEPRECISION [not null]
+  "destination_longitude" DOUBLEPRECISION [not null]
+  "time_frame_days" INT [not null]
+  "time_frame_from" TIMESTAMP [not null]
+  "time_frame_to" TIMESTAMP [not null]
+  "created_at" TIMESTAMP [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP
+}
+
+Enum "delivery_status" {
+  "init"
+  "finding"
+  "found"
+  "not_found"
+  "delivered"
+  "canceled"
+}
+
+Table "deliveries" {
+  "id" SERIAL [pk, increment]
+  "order_id" BIGINT [not null]
+  "provider" VARCHAR(255) [not null]
+  "origin_latitude" DOUBLEPRECISION [not null]
+  "origin_longitude" DOUBLEPRECISION [not null]
+  "destination_latitude" DOUBLEPRECISION [not null]
+  "destination_longitude" DOUBLEPRECISION [not null]
+  "time_frame_start" TIMESTAMP [not null]
+  "time_frame_end" TIMESTAMP [not null]
+  "status" delivery_status [not null]
+  "created_at" TIMESTAMP [not null, default: `CURRENT_TIMESTAMP`]
+  "updated_at" TIMESTAMP
+}
+
+Table "delivery_audits" {
+  "id" SERIAL [pk, increment]
+  "delivery_id" BIGINT [not null]
+  "provider" VARCHAR(255) [not null]
+  "status" delivery_status [not null]
+  "created_at" TIMESTAMP [not null, default: `CURRENT_TIMESTAMP`]
+}
+
+Table providers {
+  id SERIAL [pk, increment]
+  "name" varchar(255)
+  is_enable bool
+  priority int
+}
+```
+
 # User Story:
 ## Requirements:
 Request for shipment model:
