@@ -14,8 +14,9 @@ import (
 
 	"snappshop.ir/seeders"
 
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq" // PostgreSQL driver
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -33,6 +34,17 @@ func main() {
 	cmd.RunMigrations(db, "./db/migrations")
 
 	mainDB, err := gorm.Open(postgres.Open(cfg.DBConnectionString), &gorm.Config{})
+
+	// Initialize Kafka consumer
+	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
+		"bootstrap.servers": "localhost:9092",
+		"group.id":          "order_group",
+		"auto.offset.reset": "earliest",
+	})
+	if err != nil {
+		log.Fatalf("failed to create Kafka consumer: %v", err)
+	}
+	defer consumer.Close()
 
 	// Initialize dependencies
 	deliveryRepository := delivery.NewGORMRepository(mainDB)

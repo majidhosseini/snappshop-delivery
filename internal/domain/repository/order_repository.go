@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 	"snappshop.ir/internal/domain/entity"
@@ -14,6 +15,7 @@ type OrderRepository interface {
 	GetByID(id uint64) (*entity.Order, error)
 	Update(order *entity.Order) error
 	Delete(id uint64) error
+	GetByTimeToDeliver() ([]entity.Order, error)
 	GetByOrderNumber(orderNumber string) (*entity.Order, error)
 }
 
@@ -42,6 +44,18 @@ func (r *orderRepository) GetByID(id uint64) (*entity.Order, error) {
 		return nil, err
 	}
 	return &order, nil
+}
+
+// GetByTimeToDeliver retrieves orders that need to be delivered within the next hour
+func (r *orderRepository) GetByTimeToDeliver() ([]entity.Order, error) {
+	var orders []entity.Order
+	oneHourLater := time.Now().Add(1 * time.Hour)
+
+	if err := r.db.Where("status = ? AND time_frame_from <= ?", entity.StatusCreated, oneHourLater).Find(&orders).Error; err != nil {
+		return nil, err
+	}
+
+	return orders, nil
 }
 
 // GetByOrderNumber retrieves an order by its order number

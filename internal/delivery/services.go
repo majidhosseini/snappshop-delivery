@@ -2,11 +2,11 @@ package delivery
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-
 	"snappshop.ir/internal/domain/entity"
 	"snappshop.ir/internal/domain/repository"
 )
@@ -37,50 +37,44 @@ func (s *Service) CreateOrder(ctx context.Context, req *Request) error {
 		return err
 	}
 
-	return s.repo.Create(req.toOrder())
+	o := req.toOrder()
+
+	if req.StartTimeFrame.Before(time.Now().Add(1 * time.Hour)) {
+		s.SendToKafka(ctx, o)
+	}
+
+	return s.repo.Create(o)
 }
 
-func (s *Service) ProcessOrder(ctx context.Context, orderID uint64) error {
-	order, err := s.orderRepository.GetByID(orderID)
+func (s *Service) ProcessOrder(ctx context.Context) error {
+	orders, err := s.repo.GetByTimeToDeliver()
 	if err != nil {
 		return err
 	}
-	if order == nil {
+	if orders == nil {
 		return errors.New("order not found")
 	}
 
-	if order.Status != entity.StatusCreated {
-		return errors.New("invalid state for processing")
-	}
-
-	order.Status = entity.StatusInProgress
-	order.UpdatedAt = time.Now()
-	if err := s.orderRepository.Update(order); err != nil {
-		return err
-	}
-
-	// Simulate 3PL integration
-	shipmentFound := s.fake3PLCall(order)
-	if shipmentFound {
-		order.Status = entity.StatusCompleted
-	} else {
-		order.Status = entity.StatusCanceled
-	}
-	order.UpdatedAt = time.Now()
-	if err := s.orderRepository.Update(order); err != nil {
-		return err
-	}
-
-	// Produce message to Kafka
-	message := &kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &s.topic, Partition: kafka.PartitionAny},
-		Value:          []byte("Order processed: " + order.OrderNumber),
-	}
-	if err := s.kafkaProducer.Produce(message, nil); err != nil {
-		return err
+	for _, order := range orders {
+		// Produce message to Kafka
+		s.SendToKafka(ctx, &order)
 	}
 
 	return nil
+}
+
+func (s *Service) SendToKafka(ctx context.Context, order *entity.Order) error {
+	message := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &s.topic, Partition: kafka.PartitionAny},
+		Value: func() []byte {
+			data, err := json.Marshal(order)
+			if err != nil {
+				return nil
+			}
+			return data
+		}(),
+	}
+	return s.kafkaProducer.Produce(message, nil)
 }
 
 // func (s *Service) ProcessDelivery(ctx context.Context, reqID string) error {
