@@ -1,18 +1,23 @@
 package main
 
 import (
+	"context"
 	"log"
-	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"snappshop.ir/cmd"
 	"snappshop.ir/config"
-	"snappshop.ir/internal/delivery"
-	"snappshop.ir/internal/scheduler"
 
-	"snappshop.ir/seeders"
+	// "snappshop.ir/internal/delivery"
+	"snappshop.ir/internal/domain/repository"
+	"snappshop.ir/internal/scheduler"
+	"snappshop.ir/internal/tpl"
+	"snappshop.ir/pkg/http"
+	"snappshop.ir/pkg/logger"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/jmoiron/sqlx"
@@ -20,11 +25,14 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	// Load configuration
 	cfg := config.Load()
 
 	// Initialize database connection
-	db, err := sqlx.Connect("postgres", cfg.DBConnectionString)
+	db, err := sqlx.Connect("postgres", cfg.DB.DSN)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -33,7 +41,7 @@ func main() {
 	// Run database migrations
 	cmd.RunMigrations(db, "./db/migrations")
 
-	mainDB, err := gorm.Open(postgres.Open(cfg.DBConnectionString), &gorm.Config{})
+	mainDB, err := gorm.Open(postgres.Open(cfg.DB.DSN), &gorm.Config{})
 
 	// Initialize Kafka consumer
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
@@ -47,32 +55,31 @@ func main() {
 	defer consumer.Close()
 
 	// Initialize dependencies
-	deliveryRepository := delivery.NewGORMRepository(mainDB)
-	deliveryService := delivery.NewService(deliveryRepository)
-	schedulerService := scheduler.NewScheduler(cfg, deliveryService)
+	orderRepository := repository.NewOrderRepository(mainDB)
 
-	// Seed initial data
-	seeders.SeedRequests(deliveryService, 100)
-	go seeders.SeedScheduledRequests(deliveryService, 30*time.Second)
+	tplClient := tpl.NewClient("test.ir", "test_token")
+	logger := logger.New("delivery-service")
 
-	// Start scheduler
-	go schedulerService.Start()
+	// deliveryRepository := delivery.NewGORMRepository(mainDB)
+	// deliveryService := delivery.NewService(orderRepository)
+
+	schedulerService := scheduler.NewDispatcher(orderRepository, tplClient, *logger, cfg.SchedulerInterval, 3)
+	go schedulerService.Start(ctx)
 
 	// Start HTTP server
-	if err := StartHTTPServer(cfg, deliveryService); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
-}
+	server := http.NewServer(cfg.HTTP.Port)
 
-// StartHTTPServer starts the HTTP server
-func StartHTTPServer(cfg *config.Config, deliveryService *delivery.Service) error {
+	go func() {
+		if err := server.Start(); err != nil {
+			logger.Fatal().Err(err).Msg("failed to start server")
+		}
+	}()
 
-	http.HandleFunc("/deliveries", func(w http.ResponseWriter, r *http.Request) {
-		// Handle delivery requests
-		w.Write([]byte("Delivery service is running"))
-	})
+	<-ctx.Done()
+	logger.Info().Msg("shutting down gracefully")
 
-	log.Printf("Starting HTTP server on %s", cfg.ServerAddress)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	return http.ListenAndServe(cfg.ServerAddress, nil)
+	server.Shutdown(shutdownCtx)
 }

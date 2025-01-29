@@ -47,7 +47,7 @@ func (s *Service) CreateOrder(ctx context.Context, req *Request) error {
 }
 
 func (s *Service) ProcessOrder(ctx context.Context) error {
-	orders, err := s.repo.GetByTimeToDeliver()
+	orders, err := s.repo.GetByTimeToDeliver(ctx)
 	if err != nil {
 		return err
 	}

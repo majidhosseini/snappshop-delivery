@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -15,8 +16,9 @@ type OrderRepository interface {
 	GetByID(id uint64) (*entity.Order, error)
 	Update(order *entity.Order) error
 	Delete(id uint64) error
-	GetByTimeToDeliver() ([]entity.Order, error)
+	GetByTimeToDeliver(ctx context.Context) ([]entity.Order, error)
 	GetByOrderNumber(orderNumber string) (*entity.Order, error)
+	MarkOrderCompleted(ctx context.Context, orderNumber string) error
 }
 
 // orderRepository is the implementation of OrderRepository
@@ -47,11 +49,11 @@ func (r *orderRepository) GetByID(id uint64) (*entity.Order, error) {
 }
 
 // GetByTimeToDeliver retrieves orders that need to be delivered within the next hour
-func (r *orderRepository) GetByTimeToDeliver() ([]entity.Order, error) {
+func (r *orderRepository) GetByTimeToDeliver(ctx context.Context) ([]entity.Order, error) {
 	var orders []entity.Order
 	oneHourLater := time.Now().Add(1 * time.Hour)
 
-	if err := r.db.Where("status = ? AND time_frame_from <= ?", entity.StatusCreated, oneHourLater).Find(&orders).Error; err != nil {
+	if err := r.db.WithContext(ctx).Where("status = ? AND time_frame_from <= ?", entity.StatusCreated, oneHourLater).Find(&orders).Error; err != nil {
 		return nil, err
 	}
 
@@ -68,6 +70,10 @@ func (r *orderRepository) GetByOrderNumber(orderNumber string) (*entity.Order, e
 		return nil, err
 	}
 	return &order, nil
+}
+
+func (r *orderRepository) MarkOrderCompleted(ctx context.Context, orderNumber string) error {
+	return r.db.WithContext(ctx).Model(&entity.Order{}).Where("order_number = ?", orderNumber).Update("status", entity.StatusCompleted).Error
 }
 
 // Update modifies an existing order in the database

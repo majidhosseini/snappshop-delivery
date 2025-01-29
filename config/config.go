@@ -4,15 +4,24 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	DBConnectionString string
-	HTTPPort           string
-	SchedulerInterval  int
-	ServerAddress      string
+	Env  string
+	HTTP struct {
+		Port         string
+		ReadTimeout  time.Duration
+		WriteTimeout time.Duration
+	}
+	DB struct {
+		DSN          string
+		MaxOpenConns int
+		MaxIdleConns int
+	}
+	SchedulerInterval time.Duration
 }
 
 func Load() *Config {
@@ -28,10 +37,26 @@ func Load() *Config {
 	}
 
 	return &Config{
-		DBConnectionString: getEnv("DB_CONNECTION_STRING"),
-		HTTPPort:           getEnv("HTTP_PORT"),
-		SchedulerInterval:  schedulerInterval,
-		ServerAddress:      getEnv("SERVER_ADDRESS"),
+		Env: "dev",
+		HTTP: struct {
+			Port         string
+			ReadTimeout  time.Duration
+			WriteTimeout time.Duration
+		}{
+			Port:         "8080",
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
+		},
+		DB: struct {
+			DSN          string
+			MaxOpenConns int
+			MaxIdleConns int
+		}{
+			DSN:          "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable",
+			MaxOpenConns: 25,
+			MaxIdleConns: 25,
+		},
+		SchedulerInterval: time.Duration(schedulerInterval) * time.Second,
 	}
 }
 
