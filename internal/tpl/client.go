@@ -9,14 +9,18 @@ import (
 	"time"
 )
 
-type Client struct {
+type Client interface {
+	CreateShipment(ctx context.Context, orderID string) error
+}
+
+type client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
 }
 
-func NewClient(baseURL, apiKey string) *Client {
-	return &Client{
+func NewClient(baseURL, apiKey string) Client {
+	return &client{
 		baseURL: baseURL,
 		apiKey:  apiKey,
 		httpClient: &http.Client{
@@ -26,7 +30,7 @@ func NewClient(baseURL, apiKey string) *Client {
 }
 
 // CreateShipment sends order data to 3PL API
-func (c *Client) CreateShipment(ctx context.Context, orderID string) error {
+func (c *client) CreateShipment(ctx context.Context, orderID string) error {
 	// Example request payload
 	payload := map[string]interface{}{
 		"order_id":  orderID,

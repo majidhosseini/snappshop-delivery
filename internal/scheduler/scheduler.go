@@ -9,21 +9,21 @@ import (
 	"snappshop.ir/internal/domain/entity"
 	"snappshop.ir/internal/domain/repository"
 	"snappshop.ir/internal/tpl"
-	"snappshop.ir/pkg/logger"
 )
 
 type Dispatcher struct {
-	repo          repository.OrderRepository
-	tplClient     *tpl.Client
-	logger        logger.Logger
+	repo      repository.OrderRepository
+	tplClient tpl.Client
+	// logger        logger.Logger
+	logger        zerolog.Logger
 	checkInterval time.Duration
 	maxRetries    int
 }
 
 func NewDispatcher(
 	repo repository.OrderRepository,
-	tplClient *tpl.Client,
-	logger logger.Logger,
+	tplClient tpl.Client,
+	logger zerolog.Logger,
 	checkInterval time.Duration,
 	maxRetries int,
 ) *Dispatcher {
@@ -59,7 +59,7 @@ func (d *Dispatcher) processOrders(ctx context.Context) {
 	startTime := time.Now()
 	log := d.logger.With().Str("method", "process_orders").Logger()
 
-	log.Debug().Msg("Checking for pending orders")
+	log.Info().Msg("Checking for pending orders")
 
 	orders, err := d.repo.GetByTimeToDeliver(ctx)
 	if err != nil {
@@ -105,7 +105,7 @@ func (d *Dispatcher) processOrder(ctx context.Context, order *entity.Order, log 
 		retryLog := log.With().Int("attempt", attempt).Logger()
 
 		err := d.tplClient.CreateShipment(ctx, order.OrderNumber)
-		if err != nil {
+		if err == nil {
 			if makeErr := d.repo.MarkOrderCompleted(ctx, order.OrderNumber); makeErr != nil {
 				retryLog.Error().Err(makeErr).Msg("Failed to mark order as completed")
 				return

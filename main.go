@@ -63,7 +63,7 @@ func main() {
 	// deliveryRepository := delivery.NewGORMRepository(mainDB)
 	// deliveryService := delivery.NewService(orderRepository)
 
-	schedulerService := scheduler.NewDispatcher(orderRepository, tplClient, *logger, cfg.SchedulerInterval, 3)
+	schedulerService := scheduler.NewDispatcher(orderRepository, tplClient, logger.Logger, cfg.SchedulerInterval, 3)
 	go schedulerService.Start(ctx)
 
 	// Start HTTP server
