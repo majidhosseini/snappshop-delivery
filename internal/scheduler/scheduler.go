@@ -41,12 +41,18 @@ func (d *Dispatcher) Start(ctx context.Context) {
 		Dur("check_interval", d.checkInterval).
 		Msg("Starting order dispatcher")
 
-	ticker := time.NewTicker(d.checkInterval)
+	if d.checkInterval < time.Second {
+		d.logger.Warn().Dur("check_interval", d.checkInterval).Msg("Check interval too small, setting to 1 second")
+		d.checkInterval = time.Second
+	}
+
+	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
+			ticker = time.NewTicker(d.checkInterval)
 			d.processOrders(ctx)
 		case <-ctx.Done():
 			d.logger.Info().Msg("Context canceled, stopping order dispatcher")

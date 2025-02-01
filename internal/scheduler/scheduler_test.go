@@ -2,9 +2,11 @@ package scheduler_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 	"snappshop.ir/internal/domain/entity"
 	"snappshop.ir/internal/scheduler"
@@ -112,7 +114,7 @@ func TestDispatcher(t *testing.T) {
 			repo,
 			tplClient,
 			logger2.Logger,
-			50*time.Second, // check interval
+			1*time.Hour,
 			3,
 		)
 
@@ -123,15 +125,84 @@ func TestDispatcher(t *testing.T) {
 		tplClient.AssertExpectations(t)
 	})
 
-	// dispatcher := scheduler.NewDispatcher(repo, tplClient, logger, checkInterval, maxRetries)
+	t.Run("retry failed shipments", func(t *testing.T) {
+		repo := new(MockRepository)
+		tplClient := new(MockTPLClient)
+		logger := zerolog.Nop()
 
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
+		orders := []entity.Order{
+			{
+				ID:          123,
+				OrderNumber: "order-1",
+				Status:      entity.StatusCreated,
+				TimeFrame: entity.TimeFrame{
+					Start: time.Now().Add(1 * time.Hour),
+					End:   time.Now().Add(3 * time.Hour),
+				},
+				UserInfo: entity.UserInfo{
+					Name:     "John Doe",
+					Phone:    "1234567890",
+					Address:  "123 Main St",
+					Username: "johndoe",
+					Email:    "johndoe@test.com",
+				},
+			},
+		}
 
-	// repo.On("GetPendingOrders", ctx).Return([]entity.Order{}, nil)
+		repo.On("GetByTimeToDeliver", mock.Anything).Return(orders, nil).Once()
+		tplClient.On("CreateShipment", mock.Anything, "order-1").Return(errors.New("connection failed")).Times(3)
 
-	// dispatcher.Start(ctx)
+		dispatcher := scheduler.NewDispatcher(
+			repo,
+			tplClient,
+			logger,
+			1*time.Hour,
+			3,
+		)
 
-	// repo.AssertExpectations(t)
-	// tplClient.AssertExpectations(t)
+		dispatcher.Start(ctx)
+
+		repo.AssertExpectations(t)
+		tplClient.AssertExpectations(t)
+	})
+
+	t.Run("order is already late", func(t *testing.T) {
+		repo := new(MockRepository)
+		tplClient := new(MockTPLClient)
+		logger := zerolog.Nop()
+
+		orders := []entity.Order{
+			{
+				ID:          123,
+				OrderNumber: "order-1",
+				Status:      entity.StatusCreated,
+				TimeFrame: entity.TimeFrame{
+					Start: time.Now().Add(-3 * time.Hour),
+					End:   time.Now().Add(-1 * time.Hour),
+				},
+				UserInfo: entity.UserInfo{
+					Name:     "John Doe",
+					Phone:    "1234567890",
+					Address:  "123 Main St",
+					Username: "johndoe",
+					Email:    "johndoe@test.com",
+				},
+			},
+		}
+
+		repo.On("GetByTimeToDeliver", mock.Anything).Return(orders, nil).Once()
+
+		dispatcher := scheduler.NewDispatcher(
+			repo,
+			tplClient,
+			logger,
+			1*time.Hour,
+			3,
+		)
+
+		dispatcher.Start(ctx)
+
+		repo.AssertExpectations(t)
+		tplClient.AssertNotCalled(t, "CreateShipment")
+	})
 }
