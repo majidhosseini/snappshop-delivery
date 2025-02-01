@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"snappshop.ir/internal/domain/entity"
 	"snappshop.ir/internal/scheduler"
-	"snappshop.ir/pkg/logger"
 )
 
 type MockRepository struct {
@@ -74,7 +73,7 @@ func TestDispatcher(t *testing.T) {
 	t.Run("successful order processing", func(t *testing.T) {
 		repo := new(MockRepository)
 		tplClient := new(MockTPLClient)
-		// logger := zerolog.Nop()
+		logger := zerolog.Nop()
 
 		orders := []entity.Order{
 			{
@@ -103,22 +102,18 @@ func TestDispatcher(t *testing.T) {
 			},
 		}
 
-		// Mock expectations
 		repo.On("GetByTimeToDeliver", mock.Anything).Return(orders, nil).Maybe()
 		tplClient.On("CreateShipment", mock.Anything, "order-1").Return(nil).Maybe()
 		repo.On("MarkOrderCompleted", mock.Anything, "order-1").Return(nil).Maybe()
 
-		logger2 := logger.New("test")
-
 		dispatcher := scheduler.NewDispatcher(
 			repo,
 			tplClient,
-			logger2.Logger,
+			logger,
 			1*time.Hour,
 			3,
 		)
 
-		// Run processing once
 		dispatcher.Start(ctx)
 
 		repo.AssertExpectations(t)

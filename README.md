@@ -14,6 +14,7 @@
 - [ ] Services
 - [ ] Controller
 - [ ] Test and Mock
+- [x] Scheduler
 - [ ] Documentation
 - [ ] Request Validation and Idempotency
 - [ ] Log

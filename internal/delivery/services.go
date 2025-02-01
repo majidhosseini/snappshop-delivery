@@ -17,13 +17,24 @@ type Service struct {
 	topic         string
 }
 
-func NewService(repo repository.OrderRepository) *Service {
-	return &Service{repo: repo}
+func NewService(repo repository.OrderRepository, kafkaProducer *kafka.Producer, topic string) *Service {
+	return &Service{
+		repo:          repo,
+		kafkaProducer: kafkaProducer,
+		topic:         topic,
+	}
 }
 
 func (s *Service) ValidateRequest(req *Request) error {
-	if req.OrderNumber == "" || req.FromLoc == [2]float64{} || req.ToLoc == [2]float64{} {
-		return errors.New("invalid request")
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	if req.StartTimeFrame.After(req.EndTimeFrame) ||
+		req.StartTimeFrame.Before(time.Now().Add(4*24*time.Hour)) &&
+			req.StartTimeFrame.Hour() >= 9 && req.StartTimeFrame.Hour() <= 23 &&
+			req.StartTimeFrame.Before(time.Now()) {
+		return errors.New("invalid time frame")
 	}
 
 	if _, err := s.repo.GetByOrderNumber(req.OrderNumber); err == nil {
